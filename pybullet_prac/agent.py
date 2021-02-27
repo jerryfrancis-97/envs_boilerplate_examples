@@ -245,7 +245,7 @@ class TRPOAgent:
         for key, storage in self.buffers.items():
             del storage[:num_batch_steps]
 
-    def train(self, env_name, seed=None, batch_size=12000, iterations=100,
+    def train(self, env_name, logger, seed=None, batch_size=12000, iterations=100,
               max_episode_length=None, verbose=False):
 
         # Initialize env
@@ -289,6 +289,10 @@ class TRPOAgent:
                     # Set final recording of episode reward to total
                     recording['episode_reward'][-1] = \
                         sum(recording['episode_reward'][-1])
+                    
+                    #logging per episode
+                    logger.per_episode_log(recording['episode_reward'][-1], recording['episode_length'][-1],\
+                            sum(discounted_reward), recording['num_episodes_in_iteration'][-1])
                     # Recording
                     recording['episode_length'].append(0)
                     recording['episode_reward'].append([])
@@ -304,6 +308,9 @@ class TRPOAgent:
                              / (num_episode - 1), 3))
                 print(f'Average Reward over Iteration {iteration}: {avg}')
                 recording['average_reward_over_iteration'][-1] = avg
+
+                #logging
+                logger.per_iteration(avg, recording['num_episodes_in_iteration'][-1], iteration)
             # Optimize after batch
             self.optimize()
 

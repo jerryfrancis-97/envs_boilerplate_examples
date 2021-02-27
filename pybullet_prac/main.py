@@ -6,6 +6,7 @@ import time
 import argparse
 import pickle
 import os
+from logger import Logger
 
 
 def main():
@@ -40,7 +41,8 @@ def main():
     if not os.path.isdir(dir_path):
         os.mkdir(dir_path)
     
-
+    # Activate logger
+    logger = Logger(os.path.join(dir_path,'runs'))
 
     #Training part
     nn = torch.nn.Sequential(torch.nn.Linear(8, 64), torch.nn.Tanh(),
@@ -49,7 +51,7 @@ def main():
     recorder = Data_recorder()
 
     # agent.load_model("agent_.pth")
-    training_recordings = agent.train("SimpleDriving-v0", seed=seed, batch_size=batch_size, iterations=iterations,
+    training_recordings = agent.train("SimpleDriving-v0", logger, seed=seed, batch_size=batch_size, iterations=iterations,
                 max_episode_length=max_episode_length, verbose=True)
 
     # Save data and model
