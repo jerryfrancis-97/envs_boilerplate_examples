@@ -42,7 +42,7 @@ def main():
         os.mkdir(dir_path)
     
     # Activate logger
-    logger = Logger(os.path.join(dir_path,'runs'))
+    logger = Logger(dir_path)
 
     #Training part
     nn = torch.nn.Sequential(torch.nn.Linear(8, 64), torch.nn.Tanh(),

@@ -152,10 +152,10 @@ class TRPOAgent:
                 new_std = self.logstd.detach() + step_size * self.logstd.grad
             #  Return new policy and std if KL and reward met
             else:
-                return new_policy, new_std.requires_grad_()
+                return new_policy, new_std.requires_grad_(), self.kl_delta, kl_value
 
         # Return old policy and std if constraints never met
-        return self.policy, self.logstd
+        return self.policy, self.logstd, self.kl_delta, kl_value
 
     def fisher_vector_direct(self, vector, states):
         """Computes the fisher vector product through direct method.
@@ -207,10 +207,11 @@ class TRPOAgent:
         return x.float()
 
     def optimize(self):
+        
         # Return if no completed episodes
         if len(self.buffers['completed_rewards']) == 0:
-            return
-
+            return 0, 0 # zero value for kl_delta and kl_value #skipping optimise
+        
         # Convert all buffers to tensors
         num_batch_steps = len(self.buffers['completed_rewards'])
         rewards = torch.tensor(self.buffers['completed_rewards'])
@@ -238,12 +239,13 @@ class TRPOAgent:
         # Compute search direction as A^(-1)g, A is FIM
         gradients = self.conjugate_gradient(gradients, cg_states)
         # Find new policy and std with line search
-        self.policy, self.logstd = self.line_search(gradients, states, actions,
+        self.policy, self.logstd, kl_delta, kl_value = self.line_search(gradients, states, actions,
                                                     log_probs, rewards)
 
         # Update buffers removing processed steps
         for key, storage in self.buffers.items():
             del storage[:num_batch_steps]
+        return kl_delta, kl_value
 
     def train(self, env_name, logger, seed=None, batch_size=12000, iterations=100,
               max_episode_length=None, verbose=False):
@@ -301,6 +303,9 @@ class TRPOAgent:
                     # Reset environment
                     observation = env.reset()
 
+            # Optimize after batch
+            kl_delta, kl_value = self.optimize()
+
             # Print information if verbose
             if verbose:
                 num_episode = recording['num_episodes_in_iteration'][-1]
@@ -309,10 +314,9 @@ class TRPOAgent:
                 print(f'Average Reward over Iteration {iteration}: {avg}')
                 recording['average_reward_over_iteration'][-1] = avg
 
-                #logging
-                logger.per_iteration(avg, recording['num_episodes_in_iteration'][-1], iteration)
-            # Optimize after batch
-            self.optimize()
+                #logging per iteration
+                logger.per_iteration(avg, kl_delta, kl_value, num_episode, iteration)
+            
 
         env.close()
         # Return recording information
